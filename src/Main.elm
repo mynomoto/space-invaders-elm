@@ -14,10 +14,12 @@ import Window
 (gameWidth,gameHeight) = (600,400)
 (halfWidth,halfHeight) = (300,200)
 
-(alienRows,alienCols) = (4,8)
+(playerWidth,playerHeight) = (30,30)
+
+(alienRows,alienCols) = (2,4)
 
 bulletSpeed = 10
-playerHorizontalSpeed = 10
+playerHorizontalSpeed = 100
 
 type State = Play | Pause
 
@@ -63,7 +65,7 @@ type alias Game =
 initPlayer : Player
 initPlayer =
   { x = 0
-  , y = 0
+  , y = -halfHeight + playerHeight/2 + 10
   , vx = 0
   , vy = 0
   , w = 3
@@ -86,7 +88,7 @@ initAlien : Alien
 initAlien =
   { x = 0
   , y = 0
-  , vx = 0
+  , vx = 40
   , vy = 0
   , w = 5
   , h = 3
@@ -96,7 +98,7 @@ initAlien =
 initGame : Game
 initGame =
   { state = Pause
-  , aliens = [initAlien]--List.concat (List.map (\i -> List.map (\j -> Alien {x=i, y=j, vx=10, vy=0, w=10, h=10}) [1..alienCols]) [1..alienRows])
+  , aliens = List.concat (List.map (\j -> List.map (\i -> {initAlien | x=i*40, y=j*25+100}) [-alienCols..alienCols]) [-alienRows..alienRows])
   , player = initPlayer
   , lives = 3
   , bullets = []
@@ -139,8 +141,8 @@ update {start,shoot,dir,delta} ({state,aliens,player,lives,bullets} as game) =
 
     newAliens =
       aliens
-        --|> List.filter (collidedNone (player :: bullets))
-        --|> List.map (physicsUpdate delta)
+        |> List.filter (collidedNone (player :: bullets))
+        |> List.map (physicsUpdate delta)
 
     newPlayer =
       physicsUpdate delta {player | vx = toFloat (dir * playerHorizontalSpeed)}
@@ -199,7 +201,7 @@ view (w,h) game =
     collage gameWidth gameHeight
       ([ rect gameWidth gameHeight
           |> filled pongGreen
-      , rect 30 30
+      , rect playerWidth playerHeight
           |> make game.player
       , toForm lives
           |> move (0, gameHeight/2 - 40)
