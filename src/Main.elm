@@ -67,7 +67,7 @@ initPlayer =
 
 initBullet : Bullet
 initBullet =
-  Bullet 0 0 0 -bulletSpeed
+  Bullet 0 0 0 bulletSpeed
 
 
 initGame : Game
@@ -79,17 +79,25 @@ initGame =
   , bullets = []
   }
 
+type Direction = Left | Right | Idle
 
 type alias Input =
   { start : Bool
   , shoot : Bool
-  , dir : Float
+  , dir : Direction
   , delta : Time
   }
 
 collidedNone objs obj =
   not <| List.any (rectCollision obj) objs
 
+
+dirToFloat : Direction -> Float
+dirToFloat dir =
+  case dir of
+    Left -> -1.0
+    Right -> 1.0
+    Idle -> 0.0
 
 -- UPDATE
 
@@ -102,15 +110,15 @@ update {start,shoot,dir,delta} ({state,aliens,player,lives,bullets} as game) =
     newBullets =
       (if shoot then {initBullet | x=player.x} :: bullets else bullets)
         |> List.filter (collidedNone aliens)
-        |> List.map (physicsUpdate delta)
+        --|> List.map (physicsUpdate delta)
 
     newAliens =
       aliens
         |> List.filter (collidedNone (player :: bullets))
-        |> List.map (physicsUpdate delta) aliens
+        |> List.map (physicsUpdate delta)
 
     newPlayer =
-      physicsUpdate delta {player | vx = dir * playerHorizontalSpeed}
+      physicsUpdate delta {player | vx = (dirToFloat dir) * playerHorizontalSpeed}
 
     newLives =
       if collidedNone player aliens then lives else lives-1
