@@ -19,7 +19,7 @@ import Window
 (alienRows,alienCols) = (2,4)
 alienSpeed = 40
 
-bulletSpeed = 10
+bulletSpeed = 100
 playerHorizontalSpeed = 100
 
 type State = Play | Pause
@@ -79,7 +79,7 @@ initBullet =
   { x = 0
   , y = 0
   , vx = 0
-  , vy = 0
+  , vy = bulletSpeed
   , w = 5
   , h = 5
   }
@@ -143,11 +143,9 @@ update {start,shoot,dir,delta} ({state,aliens,player,lives,bullets} as game) =
       collidedNone aliens player
 
     newBullets =
-      (if shoot then
-        --{initBullet | x=player.x} ::
-        bullets else bullets)
+      (if shoot then {initBullet | x=player.x, y=player.y} :: bullets else bullets)
         |> List.filter (collidedNone aliens)
-        --|> List.map (physicsUpdate delta)
+        |> List.map (physicsUpdate delta)
 
     someAlienTouchedSide =
       List.any alienTouchedSide aliens
