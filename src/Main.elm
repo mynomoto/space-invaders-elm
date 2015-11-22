@@ -72,8 +72,9 @@ initBullet =
 initGame : Game
 initGame =
   { state = Pause
-  , aliens = List.concat (List.map (\i -> List.map (\j -> List.map Alien {x=i, y=, vx=10, vy=0, w=10, h=10}) [1..alienCols]) [1..alienRows])
+  , aliens = []--List.concat (List.map (\i -> List.map (\j -> Alien {x=i, y=j, vx=10, vy=0, w=10, h=10}) [1..alienCols]) [1..alienRows])
   , player = initPlayer
+  , lives = 3
   , bullets = []
   }
 
@@ -92,7 +93,7 @@ collidedNone objs obj =
 -- UPDATE
 
 update : Input -> Game -> Game
-update {start,shoot,dir,delta} ({state,aliens,player,bullets} as game) =
+update {start,shoot,dir,delta} ({state,aliens,player,lives,bullets} as game) =
   let
     playerAlive =
       collidedNone aliens player
@@ -105,7 +106,7 @@ update {start,shoot,dir,delta} ({state,aliens,player,bullets} as game) =
     newAliens =
       aliens
         |> List.filter (collidedNone (player :: bullets))
-        |> List.map2 updateAlien delta aliens
+        |> List.map2 physicsUpdate delta aliens
 
     newPlayer =
       physicsUpdate {player | vx = dir * playerHorizontalSpeed}
@@ -153,7 +154,7 @@ view : (Int,Int) -> Game -> Element
 view (w,h) game =
   let
     lives =
-      txt (Text.height 50) toString game.lives
+      txt (Text.height 50) (toString game.lives)
     bullets = game.bullets
                 |> List.map (\bullet -> oval 10 10 |> make bullet)
     aliens = game.aliens
@@ -162,7 +163,7 @@ view (w,h) game =
   in
     container w h middle <|
     collage gameWidth gameHeight
-      [ rect gameWidth gameHeight
+      ([ rect gameWidth gameHeight
           |> filled pongGreen
       , rect 30 30
           |> make game.player
@@ -170,7 +171,7 @@ view (w,h) game =
           |> move (0, gameHeight/2 - 40)
       , toForm (if game.state == Play then spacer 1 1 else txt identity msg)
           |> move (0, 40 - gameHeight/2)
-      ] ++ bullets ++ aliens
+      ] ++ bullets ++ aliens)
 
 
 pongGreen =
