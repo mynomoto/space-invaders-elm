@@ -17,6 +17,7 @@ import Window
 (playerWidth,playerHeight) = (30,30)
 
 (alienRows,alienCols) = (2,4)
+alienSpeed = 40
 
 bulletSpeed = 10
 playerHorizontalSpeed = 100
@@ -124,6 +125,15 @@ dirToFloat dir =
     Right -> 1.0
     Idle -> 0.0
 
+alienTouchedSide alien =
+  alien.x - alien.w/2 <= -halfWidth || alien.x + alien.w/2 >= halfWidth
+
+updateAlien changeDirection alien =
+  if changeDirection then
+    { alien | vx = -alien.vx, vy = -4 * alienSpeed }
+  else
+    { alien | vy = 0}
+
 -- UPDATE
 
 update : Input -> Game -> Game
@@ -139,9 +149,13 @@ update {start,shoot,dir,delta} ({state,aliens,player,lives,bullets} as game) =
         |> List.filter (collidedNone aliens)
         --|> List.map (physicsUpdate delta)
 
+    someAlienTouchedSide =
+      List.any alienTouchedSide aliens
+
     newAliens =
       aliens
         |> List.filter (collidedNone (player :: bullets))
+        |> List.map (updateAlien someAlienTouchedSide)
         |> List.map (physicsUpdate delta)
 
     newPlayer =
