@@ -14,15 +14,21 @@ import Window
 (gameWidth,gameHeight) = (600,400)
 (halfWidth,halfHeight) = (300,200)
 
+(alienRows,alienCols) = (4,8)
+
+bulletSpeed = 10
+playerHorizontalSpeed = 10
 
 type State = Play | Pause
 
 
-type alias Ball =
+type alias Alien =
   { x : Float
   , y : Float
   , vx : Float
   , vy : Float
+  , w : Int
+  , h : Int
   }
 
 
@@ -31,122 +37,114 @@ type alias Player =
   , y : Float
   , vx : Float
   , vy : Float
-  , score : Int
+  , w : Int
+  , h : Int
+  }
+
+type alias Bullet =
+  { x : Float
+  , y : Float
+  , vx : Float
+  , vy : Float
+  , w : Int
+  , h : Int
   }
 
 
 type alias Game =
   { state : State
-  , ball : Ball
-  , player1 : Player
-  , player2 : Player
+  , aliens : List Alien
+  , player : Player
+  , lives : Int
+  , bullets : List Bullet
   }
 
 
-player : Float -> Player
-player x =
-  Player x 0 0 0 0
+initPlayer : Player
+initPlayer =
+  Player 0 0 0 0 3
 
 
-defaultGame : Game
-defaultGame =
+initBullet : Bullet
+initBullet =
+  Bullet 0 0 0 -bulletSpeed
+
+initGame : Game
+initGame =
   { state = Pause
-  , ball = Ball 0 0 200 200
-  , player1 = player (20-halfWidth)
-  , player2 = player (halfWidth-20)
+  , aliens = List.concat (List.map (\i -> List.map (\j -> List.map Alien {x=i, y=, vx=10, vy=0, w=10, h=10}) [1..alienCols]) [1..alienRows])
+  , player = initPlayer
+  , bullets = []
   }
 
 
 type alias Input =
-  { space : Bool
-  , dir1 : Int
-  , dir2 : Int
+  { start : Bool
+  , shoot : Bool
+  , dir : Int
   , delta : Time
   }
+
+collidedNone objs obj =
+  not <| List.any (rectCollision obj) objs
 
 
 -- UPDATE
 
 update : Input -> Game -> Game
-update {space,dir1,dir2,delta} ({state,ball,player1,player2} as game) =
+update {start,shoot,dir,delta} ({state,aliens,player,bullets} as game) =
   let
-    score1 =
-      if ball.x > halfWidth then 1 else 0
+    playerAlive =
+      collidedNone aliens player
 
-    score2 =
-      if ball.x < -halfWidth then 1 else 0
+    newBullets =
+      (if shoot then {initBullet | x=player.x} :: bullets else bullets)
+        |> List.filter (collidedNone aliens)
+        |> List.map2 physicsUpdate delta
+
+    newAliens =
+      aliens
+        |> List.filter (collidedNone (player :: bullets))
+        |> List.map2 updateAlien delta aliens
+
+    newPlayer =
+      physicsUpdate {player | vx = dir * playerHorizontalSpeed}
+
+    newLives =
+      if collidedNone player aliens then lives else lives-1
 
     newState =
-      if space then
+      if start then
           Play
 
-      else if score1 /= score2 then
+      else if player.lives <= 0 then
           Pause
 
       else
           state
 
-    newBall =
-      if state == Pause then
-        ball
-      else
-        updateBall delta ball player1 player2
   in
     { game |
         state = newState,
-        ball = newBall,
-        player1 = updatePlayer delta dir1 score1 player1,
-        player2 = updatePlayer delta dir2 score2 player2
+        aliens = newAliens,
+        player = newPlayer,
+        lives = newLives,
+        bullets = newBullets
     }
 
 
-updateBall : Time -> Ball -> Player -> Player -> Ball
-updateBall dt ball paddle1 paddle2 =
-  if not (near 0 halfWidth ball.x) then
-    { ball | x = 0, y = 0 }
-  else
-    physicsUpdate dt
-      { ball |
-          vx = stepV ball.vx (within paddle1 ball) (within paddle2 ball),
-          vy = stepV ball.vy (ball.y < 7 - halfHeight) (ball.y > halfHeight - 7)
-      }
-
-
-updatePlayer : Time -> Int -> Int -> Player -> Player
-updatePlayer dt dir points player =
+rectCollision r1 r2 =
   let
-    movedPlayer =
-      physicsUpdate dt { player | vy = toFloat dir * 200 }
+    distant = r1.x+r1.w<r2.x || r2.x+r2.w<r1.x || r1.y+r1.h<r2.y || r2.y+r2.h<r1.y
   in
-    { movedPlayer |
-        y = clamp (22-halfHeight) (halfHeight-22) movedPlayer.y,
-        score = player.score + points
-    }
+    not distant
 
 
-physicsUpdate dt obj =
+physicsUpdate delta obj =
   { obj |
-      x = obj.x + obj.vx * dt,
-      y = obj.y + obj.vy * dt
+      x = obj.x + obj.vx * delta,
+      y = obj.y + obj.vy * delta
   }
-
-
-near k c n =
-  n >= k-c && n <= k+c
-
-within paddle ball =
-  near paddle.x 8 ball.x && near paddle.y 20 ball.y
-
-
-stepV v lowerCollision upperCollision =
-  if lowerCollision then
-      abs v
-
-  else if upperCollision then
-      -(abs v)
-
-  else
-      v
 
 
 -- VIEW
@@ -154,24 +152,25 @@ stepV v lowerCollision upperCollision =
 view : (Int,Int) -> Game -> Element
 view (w,h) game =
   let
-    scores =
-      txt (Text.height 50) (toString game.player1.score ++ "  " ++ toString game.player2.score)
+    lives =
+      txt (Text.height 50) toString game.lives
+    bullets = game.bullets
+                |> List.map (\bullet -> oval 10 10 |> make bullet)
+    aliens = game.aliens
+                |> List.map (\alien -> rect 12 12 |> make alien)
+
   in
     container w h middle <|
     collage gameWidth gameHeight
       [ rect gameWidth gameHeight
           |> filled pongGreen
-      , oval 15 15
-          |> make game.ball
-      , rect 10 40
-          |> make game.player1
-      , rect 10 40
-          |> make game.player2
-      , toForm scores
+      , rect 30 30
+          |> make game.player
+      , toForm lives
           |> move (0, gameHeight/2 - 40)
       , toForm (if game.state == Play then spacer 1 1 else txt identity msg)
           |> move (0, 40 - gameHeight/2)
-      ]
+      ] ++ bullets ++ aliens
 
 
 pongGreen =
@@ -206,7 +205,7 @@ main =
 
 gameState : Signal Game
 gameState =
-  Signal.foldp update defaultGame input
+  Signal.foldp update initGame input
 
 
 delta =
@@ -217,7 +216,7 @@ input : Signal Input
 input =
   Signal.sampleOn delta <|
     Signal.map4 Input
+      Keyboard.enter
       Keyboard.space
-      (Signal.map .y Keyboard.wasd)
-      (Signal.map .y Keyboard.arrows)
+      (Signal.map .x Keyboard.arrows)
       delta
