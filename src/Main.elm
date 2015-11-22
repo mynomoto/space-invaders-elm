@@ -27,8 +27,8 @@ type alias Alien =
   , y : Float
   , vx : Float
   , vy : Float
-  , w : Int
-  , h : Int
+  , w : Float
+  , h : Float
   }
 
 
@@ -37,8 +37,8 @@ type alias Player =
   , y : Float
   , vx : Float
   , vy : Float
-  , w : Int
-  , h : Int
+  , w : Float
+  , h : Float
   }
 
 type alias Bullet =
@@ -46,8 +46,8 @@ type alias Bullet =
   , y : Float
   , vx : Float
   , vy : Float
-  , w : Int
-  , h : Int
+  , w : Float
+  , h : Float
   }
 
 
@@ -62,18 +62,41 @@ type alias Game =
 
 initPlayer : Player
 initPlayer =
-  Player 0 0 0 0 3
+  { x = 0
+  , y = 0
+  , vx = 0
+  , vy = 0
+  , w = 3
+  , h = 3
+  }
 
 
 initBullet : Bullet
 initBullet =
-  Bullet 0 0 0 bulletSpeed
+  { x = 0
+  , y = 0
+  , vx = 0
+  , vy = 0
+  , w = 5
+  , h = 5
+  }
+
+
+initAlien : Alien
+initAlien =
+  { x = 0
+  , y = 0
+  , vx = 0
+  , vy = 0
+  , w = 5
+  , h = 3
+  }
 
 
 initGame : Game
 initGame =
   { state = Pause
-  , aliens = []--List.concat (List.map (\i -> List.map (\j -> Alien {x=i, y=j, vx=10, vy=0, w=10, h=10}) [1..alienCols]) [1..alienRows])
+  , aliens = [initAlien]--List.concat (List.map (\i -> List.map (\j -> Alien {x=i, y=j, vx=10, vy=0, w=10, h=10}) [1..alienCols]) [1..alienRows])
   , player = initPlayer
   , lives = 3
   , bullets = []
@@ -84,7 +107,7 @@ type Direction = Left | Right | Idle
 type alias Input =
   { start : Bool
   , shoot : Bool
-  , dir : Direction
+  , dir : Int
   , delta : Time
   }
 
@@ -108,26 +131,28 @@ update {start,shoot,dir,delta} ({state,aliens,player,lives,bullets} as game) =
       collidedNone aliens player
 
     newBullets =
-      (if shoot then {initBullet | x=player.x} :: bullets else bullets)
+      (if shoot then
+        --{initBullet | x=player.x} ::
+        bullets else bullets)
         |> List.filter (collidedNone aliens)
         --|> List.map (physicsUpdate delta)
 
     newAliens =
       aliens
-        |> List.filter (collidedNone (player :: bullets))
-        |> List.map (physicsUpdate delta)
+        --|> List.filter (collidedNone (player :: bullets))
+        --|> List.map (physicsUpdate delta)
 
     newPlayer =
-      physicsUpdate delta {player | vx = (dirToFloat dir) * playerHorizontalSpeed}
+      physicsUpdate delta {player | vx = toFloat (dir * playerHorizontalSpeed)}
 
     newLives =
-      if collidedNone player aliens then lives else lives-1
+      if collidedNone aliens player then lives else lives-1
 
     newState =
       if start then
           Play
 
-      else if player.lives <= 0 then
+      else if lives <= 0 then
           Pause
 
       else
